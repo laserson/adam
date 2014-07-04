@@ -149,6 +149,16 @@ object ReferenceRegion {
       None
     }
   }
+
+  /**
+   * Generates a region from a sequence feature.
+   *
+   * @param feature The feature to create a region from
+   * @tparam T Some feature should be a subtype of BaseFeature
+   * @return Region corresponding to the BaseFeature coordinates
+   */
+  def apply[T <: BaseFeature](feature: T): ReferenceRegion =
+    ReferenceRegion(feature.contig.getContigName, feature.start, feature.end)
 }
 
 /**
