@@ -19,11 +19,17 @@ package org.bdgenomics.adam.models
 
 import org.bdgenomics.formats.avro.Feature
 
+// If adding a new BaseFeature type, make sure to include a ReferenceMapping impl.
+// in ReferenceMappingContext
+
 class BaseFeature(val feature: Feature) {
   def featureId = feature.getFeatureId
   def contig = feature.getContig
   def start = feature.getStart
   def end = feature.getEnd
+
+  override def toString = String.format("%s(%s, %s, %s)",
+    this.getClass().getSimpleName(), contig.getContigName, start, end)
 }
 
 class BEDFeature(feature: Feature) extends BaseFeature(feature) {

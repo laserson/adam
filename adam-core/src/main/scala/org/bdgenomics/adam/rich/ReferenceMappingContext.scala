@@ -17,7 +17,7 @@
  */
 package org.bdgenomics.adam.rich
 
-import org.bdgenomics.adam.models.{ ReferenceRegion, ReferenceMapping }
+import org.bdgenomics.adam.models.{ ReferenceRegion, ReferenceMapping, BaseFeature, BEDFeature, NarrowPeakFeature }
 import org.bdgenomics.formats.avro.{ AlignmentRecord, FlatGenotype }
 
 /**
@@ -32,17 +32,32 @@ object ReferenceMappingContext {
   }
 
   implicit object AlignmentRecordReferenceMapping extends ReferenceMapping[AlignmentRecord] with Serializable {
-    def getReferenceName(value: AlignmentRecord): String =
+    override def getReferenceName(value: AlignmentRecord): String =
       value.getContig.getContigName.toString
 
-    def getReferenceRegion(value: AlignmentRecord): ReferenceRegion =
+    override def getReferenceRegion(value: AlignmentRecord): ReferenceRegion =
       ReferenceRegion(value).orNull
   }
 
   implicit object ReferenceRegionReferenceMapping extends ReferenceMapping[ReferenceRegion] with Serializable {
-    def getReferenceName(value: ReferenceRegion): String =
+    override def getReferenceName(value: ReferenceRegion): String =
       value.referenceName.toString
 
-    def getReferenceRegion(value: ReferenceRegion): ReferenceRegion = value
+    override def getReferenceRegion(value: ReferenceRegion): ReferenceRegion = value
+  }
+
+  implicit object BaseFeatureReferenceMapping extends ReferenceMapping[BaseFeature] with Serializable {
+    override def getReferenceName(value: BaseFeature): String = value.featureId.toString
+    override def getReferenceRegion(value: BaseFeature): ReferenceRegion = ReferenceRegion(value)
+  }
+
+  implicit object BEDFeatureReferenceMapping extends ReferenceMapping[BEDFeature] with Serializable {
+    override def getReferenceName(value: BEDFeature): String = value.featureId.toString
+    override def getReferenceRegion(value: BEDFeature): ReferenceRegion = ReferenceRegion(value)
+  }
+
+  implicit object NarrowPeakFeatureReferenceMapping extends ReferenceMapping[NarrowPeakFeature] with Serializable {
+    override def getReferenceName(value: NarrowPeakFeature): String = value.featureId.toString
+    override def getReferenceRegion(value: NarrowPeakFeature): ReferenceRegion = ReferenceRegion(value)
   }
 }
