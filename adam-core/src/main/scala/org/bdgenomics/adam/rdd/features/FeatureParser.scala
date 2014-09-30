@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to Big Data Genomics (BDG) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,68 +17,225 @@
  */
 package org.bdgenomics.adam.rdd.features
 
-import org.bdgenomics.formats.avro.{ Contig, Feature, Strand }
-import org.bdgenomics.adam.models.{ BaseFeature, NarrowPeakFeature, BEDFeature }
+import java.io.File
+import java.util.UUID
 
-trait FeatureParser[FT <: BaseFeature] extends Serializable {
-  def parse(line: String): FT
+import org.bdgenomics.formats.avro.{ Contig, Strand, Feature }
+
+import scala.collection.JavaConversions._
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
+import scala.io.Source
+
+trait FeatureParser extends Serializable {
+  def parse(line: String): Seq[Feature]
 }
 
-class BEDParser extends FeatureParser[BEDFeature] {
-  def parse(line: String): BEDFeature = {
+class FeatureFile(parser: FeatureParser) extends Serializable {
+  def parse(file: File): Iterator[Feature] =
+    Source.fromFile(file).getLines().flatMap { line =>
+      parser.parse(line)
+    }
+}
+
+object GTFParser {
+
+  private val attr_regex = "\\s*([^\\s]+)\\s\"([^\"]+)\"".r
+
+  /**
+   * Parses a string of format
+   *   token; token; token ...
+   *
+   * where each 'token' is of the form
+   *   key "value"
+   *
+   * and turns it into a Map
+   *
+   * @param attributeField The original string of tokens
+   * @return The Map of attributes
+   */
+  def parseAttrs(attributeField: String): Map[CharSequence, CharSequence] =
+    attributeField.split(";").flatMap {
+      case token: String =>
+        attr_regex.findFirstMatchIn(token).map(m => (m.group(1), m.group(2)))
+    }.toMap
+}
+
+/**
+ * GTF is a line-based GFF variant.
+ *
+ * Details of the GTF/GFF format here:
+ * http://www.ensembl.org/info/website/upload/gff.html
+ */
+class GTFParser extends FeatureParser {
+
+  override def parse(line: String): Seq[Feature] = {
+    // Just skip the '#' prefixed lines, these are comments in the
+    // GTF file format.
+    if (line.startsWith("#")) {
+      return Seq()
+    }
+
     val fields = line.split("\t")
-    assert(fields.length >= 3, "BED line had less than 3 fields")
+
+    /*
+    1. seqname - name of the chromosome or scaffold; chromosome names can be given with or without the 'chr' prefix. Important note: the seqname must be one used within Ensembl, i.e. a standard chromosome name or an Ensembl identifier such as a scaffold ID, without any additional content such as species or assembly. See the example GFF output below.
+    2. source - name of the program that generated this feature, or the data source (database or project name)
+    3. feature - feature type name, e.g. Gene, Variation, Similarity
+    4. start - Start position of the feature, with sequence numbering starting at 1.
+    5. end - End position of the feature, with sequence numbering starting at 1.
+    6. score - A floating point value.
+    7. strand - defined as + (forward) or - (reverse).
+    8. frame - One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, '1' that the second base is the first base of a codon, and so on..
+    9. attribute - A semicolon-separated list of tag-value pairs, providing additional information about each feature.
+     */
+
+    val (seqname, source, feature, start, end, score, strand, frame, attribute) =
+      (fields(0), fields(1), fields(2), fields(3), fields(4), fields(5), fields(6), fields(7), fields(8))
+
+    lazy val attrs = GTFParser.parseAttrs(attribute)
+
+    val contig = Contig.newBuilder().setContigName(seqname).build()
+    val f = Feature.newBuilder()
+      .setContig(contig)
+      .setStart(start.toLong - 1) // GTF/GFF ranges are 1-based
+      .setEnd(end.toLong) // GTF/GFF ranges are closed
+      .setFeatureType(feature)
+      .setSource(source)
+
+    val _strand = strand match {
+      case "+" => Strand.Forward
+      case "-" => Strand.Reverse
+      case _   => Strand.Independent
+    }
+    f.setStrand(_strand)
+
+    val (_id, _parentId) =
+      feature match {
+        case "gene"       => (Option(attrs("gene_id")), None)
+        case "transcript" => (Option(attrs("transcript_id")), Option(attrs("gene_id")))
+        case "exon"       => (Option(attrs("exon_id")), Option(attrs("transcript_id")))
+        case _            => (attrs.get("id"), None)
+      }
+    _id.foreach(f.setFeatureId)
+    _parentId.foreach(parentId => f.setParentIds(List[CharSequence](parentId)))
+
+    f.setAttributes(attrs)
+
+    Seq(f.build())
+  }
+}
+
+class BEDParser extends FeatureParser {
+
+  override def parse(line: String): Seq[Feature] = {
+
+    val fields = line.split("\t")
+    /*
+     * hmmm why was this here?
+    if (fields.length >= 3) {
+      return Seq()
+    }
+    */
     val fb = Feature.newBuilder()
     val cb = Contig.newBuilder()
     cb.setContigName(fields(0))
     fb.setContig(cb.build())
+    fb.setFeatureId(UUID.randomUUID().toString)
     fb.setStart(fields(1).toLong)
     fb.setEnd(fields(2).toLong)
-    if (fields.length > 3) fb.setTrackName(fields(3))
-    if (fields.length > 4) fb.setValue(fields(4) match {
-      case "." => null
-      case _   => fields(4).toDouble
-    })
-    if (fields.length > 5) fb.setStrand(fields(5) match {
-      case "+" => Strand.Forward
-      case "-" => Strand.Reverse
-      case _   => Strand.Independent
-    })
-    //    if (fields.length > 6) fb.setThickStart(fields(6).toLong)
-    //    if (fields.length > 7) fb.setThickEnd(fields(7).toLong)
-    //    if (fields.length > 8) fb.setItemRgb(fields(8))
-    //    if (fields.length > 9) fb.setBlockCount(fields(9).toLong)
-    //    if (fields.length > 10) fb.setBlockSizes(fields(10).split(",").map(new java.lang.Long(_)).toList)
-    //    if (fields.length > 11) fb.setBlockStarts(fields(11).split(",").map(new java.lang.Long(_)).toList)
-    new BEDFeature(fb.build())
+    if (fields.length > 3) {
+      fb.setFeatureType(fields(3))
+    }
+    if (fields.length > 4) {
+      fb.setValue(fields(4) match {
+        case "." => null
+        case _   => fields(4).toDouble
+      })
+    }
+    if (fields.length > 5) {
+      fb.setStrand(fields(5) match {
+        case "+" => Strand.Forward
+        case "-" => Strand.Reverse
+        case _   => Strand.Independent
+      })
+    }
+    val attributes = new ArrayBuffer[(CharSequence, CharSequence)]()
+    if (fields.length <= 6) {
+      attributes += ("thickStart" -> fields(6))
+    }
+    if (fields.length > 7) {
+      attributes += ("thickEnd" -> fields(7))
+    }
+    if (fields.length > 8) {
+      attributes += ("itemRgb" -> fields(8))
+    }
+    if (fields.length > 9) {
+      attributes += ("blockCount" -> fields(9))
+    }
+    if (fields.length > 10) {
+      attributes += ("blockSizes" -> fields(10))
+    }
+    if (fields.length > 11) {
+      attributes += ("blockStarts" -> fields(11))
+    }
+    val attrMap = attributes.toMap
+    fb.setAttributes(attrMap)
+
+    val feature: Feature = fb.build()
+    Seq(feature)
   }
 }
 
-// TODO(laserson): finish narrowPeak parser
-class NarrowPeakParser extends FeatureParser[NarrowPeakFeature] {
-  def parse(line: String): NarrowPeakFeature = {
+class NarrowPeakParser extends FeatureParser {
+
+  override def parse(line: String): Seq[Feature] = {
     val fields = line.split("\t")
-    assert(fields.length >= 3, "narrowPeak line had less than 3 fields")
+    /*
+    if (fields.length >= 3) {
+      return Seq()
+    }
+    */
     val fb = Feature.newBuilder()
     val cb = Contig.newBuilder()
     cb.setContigName(fields(0))
     fb.setContig(cb.build())
+    fb.setFeatureId(UUID.randomUUID().toString)
     fb.setStart(fields(1).toLong)
     fb.setEnd(fields(2).toLong)
-    if (fields.length > 3) fb.setTrackName(fields(3))
-    if (fields.length > 4) fb.setValue(fields(4) match {
-      case "." => null
-      case _   => fields(4).toDouble
-    })
-    if (fields.length > 5) fb.setStrand(fields(5) match {
-      case "+" => Strand.Forward
-      case "-" => Strand.Reverse
-      case _   => Strand.Independent
-    })
-    if (fields.length > 6) fb.setSignalValue(fields(6).toDouble)
-    if (fields.length > 7) fb.setPValue(fields(7).toDouble)
-    if (fields.length > 8) fb.setQValue(fields(8).toDouble)
-    if (fields.length > 9) fb.setPeak(fields(9).toLong)
-    new NarrowPeakFeature(fb.build())
+    if (fields.length > 3) {
+      fb.setFeatureType(fields(3))
+    }
+    if (fields.length > 4) {
+      fb.setValue(fields(4) match {
+        case "." => null
+        case _   => fields(4).toDouble
+      })
+    }
+    if (fields.length > 5) {
+      fb.setStrand(fields(5) match {
+        case "+" => Strand.Forward
+        case "-" => Strand.Reverse
+        case _   => Strand.Independent
+      })
+    }
+    val attributes = new ArrayBuffer[(CharSequence, CharSequence)]()
+    if (fields.length > 6) {
+      attributes += ("signalValue" -> fields(6))
+    }
+    if (fields.length > 7) {
+      attributes += ("pValue" -> fields(7))
+    }
+    if (fields.length > 8) {
+      attributes += ("qValue" -> fields(8))
+    }
+    if (fields.length > 9) {
+      attributes += ("peak" -> fields(9))
+    }
+    val attrMap = attributes.toMap
+    fb.setAttributes(attrMap)
+    Seq(fb.build())
   }
 }
+

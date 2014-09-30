@@ -21,12 +21,12 @@ import org.bdgenomics.formats.avro.Feature
 
 /**
  * This enumeration exist in order to reduce typo errors in the code. It needs to be kept
- * in sync with any changes to ADAMFeature.
+ * in sync with any changes to Feature.
  *
  * This enumeration is necessary because Parquet needs the field string names
  * for predicates and projections.
  */
 object FeatureField extends FieldEnumeration(Feature.SCHEMA$) {
 
-  val featureId, trackName, dbxrefs, parentIds, parentdbxrefs, contig, start, end, strand, value, thickStart, thickEnd, itemRgb, blockCount, blockSizes, blockStarts, frame, source, featureType, signalValue, pValue, qValue, peak = SchemaValue
+  val featureId, featureType, source, contig, start, end, strand, value, dbxrefs, parentIds, attributes = SchemaValue
 }

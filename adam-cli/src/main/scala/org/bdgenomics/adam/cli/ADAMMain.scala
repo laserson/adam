@@ -49,8 +49,8 @@ object ADAMMain extends Logging {
         Reads2Ref,
         MpileupCommand,
         Features2ADAM)),
-      CommandGroup("PRINT", List(
-        PrintADAM,
+      CommandGroup("PRINT", List(PrintADAM,
+        PrintGenes,
         FlagStat,
         VizReads,
         PrintTags,
