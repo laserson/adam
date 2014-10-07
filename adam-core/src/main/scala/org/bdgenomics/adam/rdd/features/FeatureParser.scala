@@ -23,7 +23,6 @@ import java.util.UUID
 import org.bdgenomics.formats.avro.{ Contig, Strand, Feature }
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import scala.io.Source
@@ -79,18 +78,6 @@ class GTFParser extends FeatureParser {
 
     val fields = line.split("\t")
 
-    /*
-    1. seqname - name of the chromosome or scaffold; chromosome names can be given with or without the 'chr' prefix. Important note: the seqname must be one used within Ensembl, i.e. a standard chromosome name or an Ensembl identifier such as a scaffold ID, without any additional content such as species or assembly. See the example GFF output below.
-    2. source - name of the program that generated this feature, or the data source (database or project name)
-    3. feature - feature type name, e.g. Gene, Variation, Similarity
-    4. start - Start position of the feature, with sequence numbering starting at 1.
-    5. end - End position of the feature, with sequence numbering starting at 1.
-    6. score - A floating point value.
-    7. strand - defined as + (forward) or - (reverse).
-    8. frame - One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, '1' that the second base is the first base of a codon, and so on..
-    9. attribute - A semicolon-separated list of tag-value pairs, providing additional information about each feature.
-     */
-
     val (seqname, source, feature, start, end, score, strand, frame, attribute) =
       (fields(0), fields(1), fields(2), fields(3), fields(4), fields(5), fields(6), fields(7), fields(8))
 
@@ -132,19 +119,20 @@ class BEDParser extends FeatureParser {
   override def parse(line: String): Seq[Feature] = {
 
     val fields = line.split("\t")
-    /*
-     * hmmm why was this here?
-    if (fields.length >= 3) {
+    if (fields.length < 3) {
       return Seq()
     }
-    */
     val fb = Feature.newBuilder()
     val cb = Contig.newBuilder()
     cb.setContigName(fields(0))
     fb.setContig(cb.build())
     fb.setFeatureId(UUID.randomUUID().toString)
+
+    // BED files are 0-based space-coordinates, so conversion to
+    // our coordinate space should mean that the values are unchanged.
     fb.setStart(fields(1).toLong)
     fb.setEnd(fields(2).toLong)
+
     if (fields.length > 3) {
       fb.setFeatureType(fields(3))
     }
@@ -162,7 +150,7 @@ class BEDParser extends FeatureParser {
       })
     }
     val attributes = new ArrayBuffer[(CharSequence, CharSequence)]()
-    if (fields.length <= 6) {
+    if (fields.length > 6) {
       attributes += ("thickStart" -> fields(6))
     }
     if (fields.length > 7) {
@@ -192,18 +180,20 @@ class NarrowPeakParser extends FeatureParser {
 
   override def parse(line: String): Seq[Feature] = {
     val fields = line.split("\t")
-    /*
-    if (fields.length >= 3) {
+    if (fields.length < 3) {
       return Seq()
     }
-    */
     val fb = Feature.newBuilder()
     val cb = Contig.newBuilder()
     cb.setContigName(fields(0))
     fb.setContig(cb.build())
     fb.setFeatureId(UUID.randomUUID().toString)
+
+    // Peak files are 0-based space-coordinates, so conversion to
+    // our coordinate space should mean that the values are unchanged.
     fb.setStart(fields(1).toLong)
     fb.setEnd(fields(2).toLong)
+
     if (fields.length > 3) {
       fb.setFeatureType(fields(3))
     }
