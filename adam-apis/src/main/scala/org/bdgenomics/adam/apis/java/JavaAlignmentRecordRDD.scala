@@ -17,12 +17,12 @@
  */
 package org.bdgenomics.adam.apis.java
 
-import org.apache.spark.api.java.JavaRDD
+import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.formats.avro._
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 
-class JavaAlignmentRecordRDD(val jrdd: JavaRDD[AlignmentRecord]) extends Serializable {
+class JavaAlignmentRecordRDD(val rdd: RDD[AlignmentRecord]) extends Serializable {
 
   /**
    * Saves this RDD to disk as a Parquet file.
@@ -38,7 +38,7 @@ class JavaAlignmentRecordRDD(val jrdd: JavaRDD[AlignmentRecord]) extends Seriali
                pageSize: java.lang.Integer,
                compressCodec: CompressionCodecName,
                disableDictionaryEncoding: java.lang.Boolean) {
-    jrdd.rdd.adamParquetSave(
+    rdd.adamParquetSave(
       filePath,
       blockSize,
       pageSize,
@@ -53,7 +53,7 @@ class JavaAlignmentRecordRDD(val jrdd: JavaRDD[AlignmentRecord]) extends Seriali
    * @param filePath Path to save the file at.
    */
   def adamSave(filePath: java.lang.String) {
-    jrdd.rdd.adamParquetSave(filePath)
+    rdd.adamParquetSave(filePath)
   }
 
   /**
@@ -64,7 +64,7 @@ class JavaAlignmentRecordRDD(val jrdd: JavaRDD[AlignmentRecord]) extends Seriali
    */
   def adamSAMSave(filePath: java.lang.String,
                   asSam: java.lang.Boolean) {
-    jrdd.rdd.adamSAMSave(filePath, asSam)
+    rdd.adamSAMSave(filePath, asSam)
   }
 
   /**
@@ -73,6 +73,6 @@ class JavaAlignmentRecordRDD(val jrdd: JavaRDD[AlignmentRecord]) extends Seriali
    * @param filePath Path to save the file at.
    */
   def adamSAMSave(filePath: java.lang.String) {
-    jrdd.rdd.adamSAMSave(filePath)
+    rdd.adamSAMSave(filePath)
   }
 }
