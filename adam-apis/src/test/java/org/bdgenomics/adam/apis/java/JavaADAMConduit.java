@@ -21,8 +21,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.rdd.RDD;
 import org.bdgenomics.adam.apis.java.JavaADAMContext;
 import org.bdgenomics.formats.avro.AlignmentRecord;
+import scala.reflect.ClassManifestFactory;
+import scala.reflect.Manifest;
+import scala.reflect.ManifestFactory;
 
 /**
  * A simple test class for the JavaADAMRDD/Context. Writes an RDD to
@@ -30,12 +34,13 @@ import org.bdgenomics.formats.avro.AlignmentRecord;
  */
 public class JavaADAMConduit {
     public static JavaAlignmentRecordRDD conduit(JavaRDD<AlignmentRecord> rdd) throws IOException {
-        JavaAlignmentRecordRDD recordRdd = new JavaAlignmentRecordRDD(rdd);
+        JavaADAMRDD recordRdd = new JavaADAMRDD(rdd.rdd(),
+                                                ManifestFactory.classType(AlignmentRecord.class));
 
         // make temp directory and save file
         Path tempDir = Files.createTempDirectory("javaAC");
         String fileName = tempDir.toString() + "/testRdd.adam";
-        recordRdd.adamSave(fileName);
+        recordRdd.adamParquetSave(fileName);
 
         // create a new adam context and load the file
         JavaADAMContext jac = new JavaADAMContext(rdd.context());

@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.spark.tools
+package org.bdgenomics.adam.apis.java
 
-import java.lang.reflect.{Type, Method}
+import java.lang.reflect.{ Type, Method }
+
+import org.apache.spark.api.java.{ JavaRDD, JavaPairRDD }
 
 import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
@@ -31,19 +33,17 @@ import org.bdgenomics.adam.rdd.read.AlignmentRecordRDDFunctions
 import org.bdgenomics.adam.rdd.variation.GenotypeRDDFunctions
 import org.bdgenomics.adam.rdd.variation.VariantContextRDDFunctions
 
+private[java] abstract class SparkType(val name: String)
 
-private[spark] abstract class SparkType(val name: String)
-
-private[spark] case class BaseType(override val name: String) extends SparkType(name) {
+private[java] case class BaseType(override val name: String) extends SparkType(name) {
   override def toString: String = {
     name
   }
 }
 
-private[spark]
-case class ParameterizedType(override val name: String,
-                             parameters: Seq[SparkType],
-                             typebounds: String = "") extends SparkType(name) {
+private[java] case class ParameterizedType(override val name: String,
+                                           parameters: Seq[SparkType],
+                                           typebounds: String = "") extends SparkType(name) {
   override def toString: String = {
     if (typebounds != "") {
       typebounds + " " + name + "<" + parameters.mkString(", ") + ">"
@@ -53,8 +53,7 @@ case class ParameterizedType(override val name: String,
   }
 }
 
-private[spark]
-case class SparkMethod(name: String, returnType: SparkType, parameters: Seq[SparkType]) {
+private[java] case class SparkMethod(name: String, returnType: SparkType, parameters: Seq[SparkType]) {
   override def toString: String = {
     returnType + " " + name + "(" + parameters.mkString(", ") + ")"
   }
@@ -78,7 +77,7 @@ object JavaAPICompletenessChecker {
     } else {
       val parts = typeStr.split("<", 2)
       val name = parts(0).trim
-      assert (parts(1).last == '>')
+      assert(parts(1).last == '>')
       val parameters = parts(1).dropRight(1)
       ParameterizedType(name, parseTypeList(parameters))
     }
@@ -103,7 +102,7 @@ object JavaAPICompletenessChecker {
         token.append(c)
       }
     }
-    assert (stack == 0)
+    assert(stack == 0)
     if (token.toString != "") {
       types += parseType(token.toString)
     }
@@ -332,32 +331,36 @@ object JavaAPICompletenessChecker {
   }
 
   def main(args: Array[String]) {
-    println("Missing ADAMContext methods")
-    printMissingMethods(classOf[ADAMContext], classOf[JavaADAMContext])
-    println()
-
-    println("Missing ADAMRDD methods")
-    printMissingMethods(classOf[ADAMRDDFunctions[_]], classOf[JavaADAMRDD[_]])
-    println()
-
-    println("Missing NucleotideContigFragmentRDD methods")
-    printMissingMethods(classOf[NucleotideContigFragmentRDDFunctions], classOf[JavaNucleotideContigFragmentRDD])
-    println()
-
-    println("Missing FeatureRDD methods")
-    printMissingMethods(classOf[FeatureRDDFunctions], classOf[JavaFeatureRDD])
-    println()
+    //    println("Missing ADAMContext methods")
+    //    printMissingMethods(classOf[ADAMContext], classOf[JavaADAMContext])
+    //    println()
+    //
+    //    println("Missing ADAMRDD methods")
+    //    printMissingMethods(classOf[ADAMRDDFunctions[_]], classOf[JavaADAMRDD[_]])
+    //    println()
+    //
+    //    println("Missing NucleotideContigFragmentRDD methods")
+    //    printMissingMethods(classOf[NucleotideContigFragmentRDDFunctions], classOf[JavaNucleotideContigFragmentRDD])
+    //    println()
+    //
+    //    println("Missing FeatureRDD methods")
+    //    printMissingMethods(classOf[FeatureRDDFunctions], classOf[JavaFeatureRDD])
+    //    println()
 
     println("Missing AlignmentRecordRDD methods")
     printMissingMethods(classOf[AlignmentRecordRDDFunctions], classOf[JavaAlignmentRecordRDD])
     println()
 
-    println("Missing GenotypeRDD methods")
-    printMissingMethods(classOf[GenotypeRDDFunctions], classOf[JavaGenotypeRDD])
-    println()
-
-    println("Missing VariantContextRDD methods")
-    printMissingMethods(classOf[VariantContextRDDFunctions], classOf[JavaVariantContextRDD])
-    println()
+    //    println("Missing GenotypeRDD methods")
+    //    printMissingMethods(classOf[GenotypeRDDFunctions], classOf[JavaGenotypeRDD])
+    //    println()
+    //
+    //    println("Missing VariantContextRDD methods")
+    //    printMissingMethods(classOf[VariantContextRDDFunctions], classOf[JavaVariantContextRDD])
+    //    println()
+    //
+    //    println("Missing FragmentRDD methods")
+    //    printMissingMethods(classOf[FragmentRDDFunctions], classOf[JavaFragmentRDD])
+    //    println()
   }
 }
